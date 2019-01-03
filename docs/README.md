@@ -7,3 +7,6 @@ https://en.wikipedia.org/wiki/Torrent_file
 首先读一下这份资料，然后再去找各种协议说明文档。
 
 
+## Bencode
+参考 https://en.wikipedia.org/wiki/Bencode
+
