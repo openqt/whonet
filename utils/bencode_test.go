@@ -1,10 +1,10 @@
 package utils
 
 import (
-	"testing"
+		"testing"
 )
 
-func TestInt(t *testing.T) {
+func aTestInt(t *testing.T) {
 	data := map[string]int{
 		"i42e":  42,
 		"i-42e": -42,
@@ -23,7 +23,7 @@ func TestInt(t *testing.T) {
 	}
 }
 
-func TestString(t *testing.T) {
+func aTestString(t *testing.T) {
 	data := map[string]string{
 		"4:spam":  "spam",
 		"0:":      "",
@@ -43,10 +43,11 @@ func TestString(t *testing.T) {
 }
 
 func TestList(t *testing.T) {
-	data := map[string][]interface{}{
-		"li1ei2ei3ee":             {1, 2, 3},
-		"l4:spami42ee":            {"spam", 42},
-		"l3:fool4:spam2:okei42ee": {"foo", []string{"spam", "ok"}, 42},
+	data := map[string]interface{}{
+		"li1ei2ei3ee":             [3]int{1, 2, 3},
+		//"li1ei2ei3ee":             {1, 2, 3},
+		//"l4:spami42ee":            {"spam", 42},
+		//"l3:fool4:spam2:okei42ee": []interface{}{"foo", [2]string{"spam", "ok"}, 42},
 	}
 
 	bc := NewBencode()
@@ -55,22 +56,21 @@ func TestList(t *testing.T) {
 			t.Errorf("List %s != %s\n", s, bc.Encode(v))
 		}
 
-		//if reflect.DeepEqual(bc.Decode(s), v) {
-		//	t.Errorf("List %v != %v\n", bc.Decode(s), v)
-		//}
+		if !DeepEqual(bc.Decode(s), v) {
+			t.Errorf("List %v != %v\n", bc.Decode(s), v)
+		}
 	}
 }
 
-//func TestDict(t *testing.T) {
-//	bc := Bencode{}
-//
-//	data := map[string]map[string]interface{}{
-//		"d3:bar4:spam3:fooi42ee": {"bar": "spam", "foo": 42},
-//	}
-//
-//	for s, v := range data {
-//		if bc.EncodeDict(v) != s {
-//			t.Errorf("List %s != %s\n", s, bc.EncodeDict(v))
-//		}
-//	}
-//}
+func TestDict(t *testing.T) {
+	data := map[string]map[string]interface{}{
+		"d3:bar4:spam3:fooi42ee": {"bar": "spam", "foo": 42},
+	}
+
+	bc := NewBencode()
+	for s, v := range data {
+		if bc.Encode(v) != s {
+			t.Errorf("List %s != %s\n", s, bc.Encode(v))
+		}
+	}
+}

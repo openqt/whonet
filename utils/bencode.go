@@ -1,13 +1,10 @@
 package utils
 
-// 更新依赖库的环境参数
-// HTTPS_PROXY=socks5://127.0.0.1:1080 go get -u -v github.com/sirupsen/logrus
-
 import (
 	"fmt"
 	log "github.com/sirupsen/logrus"
 	"os"
-	"sort"
+	"reflect"
 	"strconv"
 )
 
@@ -58,6 +55,7 @@ type Bencode struct {
 	idx  int         // (内部)解码字段长度
 }
 
+// 全局设置
 func init() {
 	log.SetFormatter(&log.TextFormatter{})
 	log.SetOutput(os.Stdout)
@@ -65,83 +63,123 @@ func init() {
 
 	log.SetReportCaller(true)
 }
+
+// 创建一个新的编码对象
 func NewBencode() *Bencode {
 	p := new(Bencode)
-	p.idx = 0
+	p.reset()
 	return p
 }
 
 // 编码为文本
 func (code *Bencode) Encode(val interface{}) string {
 	code.Data = val
-	code.Code = code.encode(val)
-	code.idx = 0
+	code.Code = code.encode(reflect.ValueOf(val))
+	code.reset()
 	return code.Code
 }
 
-func (code *Bencode) encode(val interface{}) string {
-	switch v := val.(type) {
-	case int:
-		return code.encodeInt(v)
-	case string:
-		return code.encodeString(v)
-	case []string:
-		return code.encodeStringList(v)
-	case []int:
-		return code.encodeIntList(v)
-	case []interface{}:
-		return code.encodeList(v)
-	default:
-		fmt.Printf("Value %v (type %T) not recognized.", v, v)
+func (code *Bencode) encode(val reflect.Value) string {
+	log.Debugf("Encode %v (%v)", val, val.Kind())
+	switch val.Kind() {
+	case reflect.Int:
+		return code.encodeInt(int(val.Int()))
+	case reflect.String:
+		return code.encodeString(val.String())
+	case reflect.Slice, reflect.Array:
+		return code.encodeList(val)
+	case reflect.Map:
+		return code.encodeDict(val)
 	}
-	return ""
+	panic(fmt.Sprintf("Value %v (type %T) not recognized.", val, val))
 }
 
 // 从文本解码
 func (code *Bencode) Decode(s string) interface{} {
 	code.Code = s
-	code.idx = 0
+	code.reset()
 	return code.decode()
 }
 
 func (code *Bencode) decode() interface{} {
-	c := code.Code[code.idx]
+	c := code.currentByte(0)
 	switch {
 	case c == 'i':
 		return code.decodeInt()
 	case c == 'l':
-		return code.DecodeList()
+		return code.decodeList()
 	case c == 'd':
-		return code.DecodeDict()
+		return code.decodeDict()
 	case '0' <= c && c <= '9':
 		return code.decodeString()
-	case c == 'e':
-		code.idx += 1
+	case c == 'e': // 目前仅忽略，不做一致性校验
+		code.next()
+		return nil
 	default:
-		log.Errorf("%s is invalid.", code.Code)
+		panic(fmt.Sprintf("%s is invalid.", code.Code))
 	}
-	return nil
+}
+
+func (code *Bencode) currentByte(pos int) byte {
+	if pos > 0 {
+		return code.Code[pos]
+	}
+	return code.Code[code.current()]
+}
+
+// 编码索引之后的字符串
+func (code *Bencode) currentString(length int) string {
+	if length > code.current() { // 如果长度大于当前索引
+		pos := code.current()
+		code.idx = length // 更新索引
+		return code.Code[pos:length]
+	}
+	return code.Code[code.current():] // 给出当前索引之后的字符串
+}
+
+// 编码索引当前位置
+func (code *Bencode) current() int {
+	return code.idx
+}
+
+// 编码索引增一
+func (code *Bencode) next() {
+	code.idx += 1
+}
+
+// 编码的长度
+func (code *Bencode) length() int {
+	return len(code.Code)
+}
+
+// 重置索引为0
+func (code *Bencode) reset() {
+	code.idx = 0
 }
 
 // 编码整数
 func (code *Bencode) encodeInt(i int) string {
 	val := fmt.Sprintf("i%de", i)
-	log.Debugf("%val => %val", i, val)
+	log.Debugf("%v => %v", i, val)
 	return val
 }
 
 // 解码整数
 func (code *Bencode) decodeInt() int {
-	code.idx += 1 // i<>e
+	if code.currentByte(0) != 'i' {
+		panic(fmt.Sprintf("%s is not an int.", code.currentString(0)))
+	}
+	code.next() // i<>e
 
 	var val int
-	for i := code.idx; i < len(code.Code); i++ {
-		c := code.Code[i]
+	for n := code.current(); n < code.length(); n++ {
+		c := code.currentByte(n)
 		if c == 'e' {
-			s := code.Code[code.idx:i]
+			s := code.currentString(n)
 			val, _ = strconv.Atoi(s)
 			log.Debugf("%v => %v", s, val)
-			code.idx += i // 指向e下一个字符
+			code.next() // 指向e下一个字符
+			break
 		}
 	}
 
@@ -156,59 +194,49 @@ func (code *Bencode) encodeString(s string) string {
 // 解码字符串
 func (code *Bencode) decodeString() string {
 	var length, n int
-	for n = 0; n < len(code.Code); n++ {
-		c := code.Code[n]
+	for n = code.current(); n < code.length(); n++ {
+		c := code.currentByte(n)
 		if c < '0' || c > '9' {
-			length, _ = strconv.Atoi(code.Code[:n])
+			length, _ = strconv.Atoi(code.currentString(n))
+			code.next()
 			break
 		}
 	}
 
 	if length < 0 {
-		log.Errorf("%s cannot be decoded as string.", code.Code)
-		return ""
+		panic(fmt.Sprintf("%s cannot be decoded as string.", code.currentString(0)))
 	}
 
-	code.idx += n + 1 + length // 指向下一个字符
-	v := code.Code[n+1 : n+1+length]
+	v := code.currentString(n + 1 + length)
 	log.Debugf("%s", v)
 	return v
 }
 
-// 编码字符串数组
-func (code *Bencode) encodeStringList(ls []string) string {
-	val := ""
-	for _, i := range ls {
-		val += code.encodeString(i)
-	}
-	return "l" + val + "e"
-}
-
-// 编码整数数组
-func (code *Bencode) encodeIntList(ls []int) string {
-	val := ""
-	for _, i := range ls {
-		val += code.encodeInt(i)
-	}
-	return "l" + val + "e"
-}
-
 // 编码一般数组
-func (code *Bencode) encodeList(ls []interface{}) string {
+func (code *Bencode) encodeList(l reflect.Value) string {
 	val := ""
-	for _, i := range ls {
-		val += code.encode(i)
+	for i := 0; i < l.Len(); i++ {
+		v := l.Index(i)
+		switch v.Kind() {
+		case reflect.Interface:
+			val += code.encode(v.Elem())
+		default:
+			val += code.encode(v)
+		}
 	}
 	return "l" + val + "e"
 }
 
-func (code *Bencode) DecodeList() []interface{} {
-	code.idx += 1
+// 解码数组
+func (code *Bencode) decodeList() []interface{} {
+	if code.currentByte(0) != 'l' {
+		panic(fmt.Sprintf("%s is not a list.", code.currentString(0)))
+	}
+	code.next()
 
 	var val []interface{}
-	for code.idx < len(code.Code) {
-		v := code.Decode(code.Code[code.idx:])
-		if v != nil {
+	for code.current() < code.length() {
+		if v := code.decode(); v != nil {
 			val = append(val, v)
 		} else {
 			break
@@ -219,23 +247,17 @@ func (code *Bencode) DecodeList() []interface{} {
 }
 
 // 编码一般字典
-func (code *Bencode) EncodeDict(dt map[string]interface{}) string {
+func (code *Bencode) encodeDict(d reflect.Value) string {
 	val := ""
-
-	var keys []string
-	for k := range dt {
-		keys = append(keys, k)
+	for _, key := range SortKeys(d.MapKeys()) {
+		v := d.MapIndex(reflect.ValueOf(key)).Elem()
+		val += code.encodeString(key) + code.encode(v)
 	}
-	sort.Strings(keys)
-
-	//for _, k := range keys {
-	//    val += code.encodeString(k) + code.encodeValue(dt[k])
-	//}
-
 	return "d" + val + "e"
 }
 
-func (code *Bencode) DecodeDict() map[string]interface{} {
+// 解码字典
+func (code *Bencode) decodeDict() map[string]interface{} {
 	//for n, c := range s {
 	//    switch c {
 	//    case 'i':
