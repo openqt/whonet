@@ -1,10 +1,9 @@
 package main
 
 import (
-	"fmt"
-	"github.com/spf13/cobra"
+	"github.com/openqt/whonet/cmd"
 )
 
 func main() {
-	fmt.Println(cobra.BashCompOneRequiredFlag)
+	cmd.Execute()
 }
