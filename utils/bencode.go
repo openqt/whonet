@@ -3,7 +3,6 @@ package utils
 import (
 	"fmt"
 	log "github.com/sirupsen/logrus"
-	"os"
 	"reflect"
 	"strconv"
 )
@@ -52,18 +51,24 @@ This allows for arbitrarily complex data structures to be encoded.
 type Bencode struct {
 	Data interface{} // 解码结构
 	Code string      // 编码文本
-	idx  int         // (内部)解码字段长度
+
+	idx int // (内部)解码字段长度
 }
 
 // 全局设置
 func init() {
-	log.SetFormatter(&log.TextFormatter{})
-	log.SetOutput(os.Stdout)
-	log.SetLevel(log.DebugLevel)
+	//log.SetLevel(log.DebugLevel)
 
-	log.SetReportCaller(true)
+	//log.SetFormatter(&log.TextFormatter{})
+	//log.SetOutput(os.Stdout)
+	//log.SetReportCaller(true)
 }
 
+//////////////////////////////////////////////////////////////////////////////////////////
+//
+//  编解码函数
+//
+//////////////////////////////////////////////////////////////////////////////////////////
 // 创建一个新的编码对象
 func NewBencode() *Bencode {
 	p := new(Bencode)
@@ -73,6 +78,7 @@ func NewBencode() *Bencode {
 
 // 编码为文本
 func (code *Bencode) Encode(val interface{}) string {
+	log.Debugf("Encode %v (type %T)", val, val)
 	code.Data = val
 	code.Code = code.encode(reflect.ValueOf(val))
 	code.reset()
@@ -80,46 +86,56 @@ func (code *Bencode) Encode(val interface{}) string {
 }
 
 func (code *Bencode) encode(val reflect.Value) string {
-	log.Debugf("Encode %v (%v)", val, val.Kind())
+	var result string
 	switch val.Kind() {
 	case reflect.Int:
-		return code.encodeInt(int(val.Int()))
+		result = code.encodeInt(int(val.Int()))
 	case reflect.String:
-		return code.encodeString(val.String())
+		result = code.encodeString(val.String())
 	case reflect.Slice, reflect.Array:
-		return code.encodeList(val)
+		result = code.encodeList(val)
 	case reflect.Map:
-		return code.encodeDict(val)
+		result = code.encodeDict(val)
+	default:
+		panic(fmt.Sprintf("Value %v (type %T) not recognized.", val, val))
 	}
-	panic(fmt.Sprintf("Value %v (type %T) not recognized.", val, val))
+	log.Debugf("Encode %v as %v", val, result)
+	return result
 }
 
 // 从文本解码
 func (code *Bencode) Decode(s string) interface{} {
+	log.Debugf("Decode %s", s)
 	code.Code = s
 	code.reset()
 	return code.decode()
 }
 
 func (code *Bencode) decode() interface{} {
+	var val interface{}
 	c := code.currentByte(0)
 	switch {
 	case c == 'i':
-		return code.decodeInt()
+		val = code.decodeInt()
 	case c == 'l':
-		return code.decodeList()
+		val = code.decodeList()
 	case c == 'd':
-		return code.decodeDict()
+		val = code.decodeDict()
 	case '0' <= c && c <= '9':
-		return code.decodeString()
-	case c == 'e': // 目前仅忽略，不做一致性校验
-		code.next()
-		return nil
+		val = code.decodeString()
 	default:
 		panic(fmt.Sprintf("%s is invalid.", code.Code))
 	}
+	log.Debugf("Decode to %v", val)
+	return val
 }
 
+//////////////////////////////////////////////////////////////////////////////////////////
+//
+//  内部数据封装函数
+//
+//////////////////////////////////////////////////////////////////////////////////////////
+// 当前字符
 func (code *Bencode) currentByte(pos int) byte {
 	if pos > 0 {
 		return code.Code[pos]
@@ -133,6 +149,9 @@ func (code *Bencode) currentString(length int) string {
 		pos := code.current()
 		code.idx = length // 更新索引
 		return code.Code[pos:length]
+	}
+	if length > 0 {
+		return code.Code[length:code.current()]
 	}
 	return code.Code[code.current():] // 给出当前索引之后的字符串
 }
@@ -157,10 +176,19 @@ func (code *Bencode) reset() {
 	code.idx = 0
 }
 
+// 编码结束标志
+func (code *Bencode) isEnd() bool {
+	return code.currentByte(0) == 'e'
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+//
+//  编码函数
+//
+//////////////////////////////////////////////////////////////////////////////////////////
 // 编码整数
 func (code *Bencode) encodeInt(i int) string {
 	val := fmt.Sprintf("i%de", i)
-	log.Debugf("%v => %v", i, val)
 	return val
 }
 
@@ -171,24 +199,21 @@ func (code *Bencode) decodeInt() int {
 	}
 	code.next() // i<>e
 
-	var val int
-	for n := code.current(); n < code.length(); n++ {
-		c := code.currentByte(n)
-		if c == 'e' {
-			s := code.currentString(n)
-			val, _ = strconv.Atoi(s)
-			log.Debugf("%v => %v", s, val)
-			code.next() // 指向e下一个字符
-			break
-		}
+	val, pos := 0, code.current()
+	for !code.isEnd() {
+		code.next()
 	}
 
+	s := code.currentString(pos)
+	val, _ = strconv.Atoi(s)
+	code.next() // 指向e下一个字符
 	return val
 }
 
 // 编码字符串
 func (code *Bencode) encodeString(s string) string {
-	return fmt.Sprintf("%d:%s", len(s), string(s))
+	val := fmt.Sprintf("%d:%s", len(s), string(s))
+	return val
 }
 
 // 解码字符串
@@ -207,9 +232,8 @@ func (code *Bencode) decodeString() string {
 		panic(fmt.Sprintf("%s cannot be decoded as string.", code.currentString(0)))
 	}
 
-	v := code.currentString(n + 1 + length)
-	log.Debugf("%s", v)
-	return v
+	val := code.currentString(n + 1 + length)
+	return val
 }
 
 // 编码一般数组
@@ -224,7 +248,8 @@ func (code *Bencode) encodeList(l reflect.Value) string {
 			val += code.encode(v)
 		}
 	}
-	return "l" + val + "e"
+	val = "l" + val + "e"
+	return val
 }
 
 // 解码数组
@@ -235,14 +260,10 @@ func (code *Bencode) decodeList() []interface{} {
 	code.next()
 
 	var val []interface{}
-	for code.current() < code.length() {
-		if v := code.decode(); v != nil {
-			val = append(val, v)
-		} else {
-			break
-		}
+	for !code.isEnd() {
+		val = append(val, code.decode())
 	}
-	log.Debugf("%v", val)
+	code.next() // 指向e下一个字符
 	return val
 }
 
@@ -253,23 +274,22 @@ func (code *Bencode) encodeDict(d reflect.Value) string {
 		v := d.MapIndex(reflect.ValueOf(key)).Elem()
 		val += code.encodeString(key) + code.encode(v)
 	}
-	return "d" + val + "e"
+	val = "d" + val + "e"
+	return val
 }
 
 // 解码字典
 func (code *Bencode) decodeDict() map[string]interface{} {
-	//for n, c := range s {
-	//    switch c {
-	//    case 'i':
-	//        ns := code.decodeInt()
-	//        fmt.Println(ns)
-	//    case 'l':
-	//        //code.decodeStringList(s)
-	//    case 'd':
-	//        //
-	//    default:
-	//        code.decodeString()
-	//    }
-	//}
-	return nil
+	if code.currentByte(0) != 'd' {
+		panic(fmt.Sprintf("%s is not a map.", code.currentString(0)))
+	}
+	code.next()
+
+	val := make(map[string]interface{})
+	for !code.isEnd() {
+		key := code.decodeString()
+		val[key] = code.decode()
+	}
+	code.next() // 指向e下一个字符
+	return val
 }

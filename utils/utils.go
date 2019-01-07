@@ -1,9 +1,10 @@
 package utils
 
 import (
+	log "github.com/sirupsen/logrus"
 	"reflect"
 	"sort"
-	)
+)
 
 // 对字典的key排序
 func SortKeys(l []reflect.Value) []string {
@@ -23,21 +24,48 @@ func DeepEqual(x, y interface{}) bool {
 
 	v1 := reflect.ValueOf(x)
 	v2 := reflect.ValueOf(y)
-	//if v1.Type() != v2.Type() {
-	//	return false
-	//}
-	if v1.Len() != v2.Len() {
-		return false
+	log.Debugf("Kind %v %v", v1.Kind(), v2.Kind())
+	log.Debugf("Type %v %v", v1.Type(), v2.Type())
+	log.Debugf("Interface %v %v", v1.Interface(), v2.Interface())
+
+	switch v1.Kind() {
+	case reflect.Slice, reflect.Array:
+		switch v2.Kind() {
+		case reflect.Slice, reflect.Array:
+			break
+		default:
+			return false
+		}
+		if v1.Len() != v2.Len() {
+			return false
+		}
+
+		for i := 0; i < v1.Len(); i++ {
+			if !DeepEqual(v1.Index(i).Interface(), v2.Index(i).Interface()) {
+				return false
+			}
+		}
+		return true
+	case reflect.Map:
+		if v2.Kind() != reflect.Map {
+			return false
+		}
+		if v1.Len() != v2.Len() {
+			return false
+		}
+
+		for _, key := range v1.MapKeys() {
+			if !v2.MapIndex(key).IsValid() {
+				return false
+			}
+
+			DeepEqual(v1.MapIndex(key).Interface(), v2.MapIndex(key).Interface())
+		}
+		return true
+	default:
+		if v1.Type() != v2.Type() {
+			return false
+		}
+		return x == y
 	}
-	//for i:=0;i<v1.Len();i++{
-	//
-	//	switch e1 := v1.Index(i); e1.Kind() {
-	//	case reflect.Interface:
-	//	}
-	//	if v1.Index(i).Elem() != v2.Index(i).Elem() {
-	//		return false
-	//	}
-	//}
-	return true
-	//return deepValueEqual(v1, v2, make(map[visit]bool), 0)}
 }
