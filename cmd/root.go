@@ -11,9 +11,9 @@ import (
 var cfgFile string
 
 var rootCmd = &cobra.Command{
-	Use:   "Torrent",
-	Short: "",
-	Long:  "",
+	Use:   "whonet",
+	Short: "BitTorrent toolset",
+	Long:  "Toolset for torrent parse, file download etc...",
 	// Uncomment the following line if your bare application
 	// has an action associated with it:
 	//Run: func(cmd *cobra.Command, args []string) {},

@@ -1,8 +1,8 @@
 package utils
 
 import (
+	"encoding/json"
 	"fmt"
-	log "github.com/sirupsen/logrus"
 	"reflect"
 	"strconv"
 )
@@ -57,11 +57,6 @@ type Bencode struct {
 
 // 全局设置
 func init() {
-	//log.SetLevel(log.DebugLevel)
-
-	//log.SetFormatter(&log.TextFormatter{})
-	//log.SetOutput(os.Stdout)
-	//log.SetReportCaller(true)
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -78,7 +73,7 @@ func NewBencode() *Bencode {
 
 // 编码为文本
 func (code *Bencode) Encode(val interface{}) string {
-	log.Debugf("Encode %v (type %T)", val, val)
+	LOG.Debugf("Encode %v (type %T)", val, val)
 	code.Data = val
 	code.Code = code.encode(reflect.ValueOf(val))
 	code.reset()
@@ -99,16 +94,17 @@ func (code *Bencode) encode(val reflect.Value) string {
 	default:
 		panic(fmt.Sprintf("Value %v (type %T) not recognized.", val, val))
 	}
-	log.Debugf("Encode %v as %v", val, result)
+	LOG.Debugf("Encode %v as %v", val, result)
 	return result
 }
 
 // 从文本解码
 func (code *Bencode) Decode(s string) interface{} {
-	log.Debugf("Decode %s", s)
+	//LOG.Debugf("Decode %s", s)
 	code.Code = s
 	code.reset()
-	return code.decode()
+	code.Data = code.decode()
+	return code.Data
 }
 
 func (code *Bencode) decode() interface{} {
@@ -126,8 +122,20 @@ func (code *Bencode) decode() interface{} {
 	default:
 		panic(fmt.Sprintf("%s is invalid.", code.Code))
 	}
-	log.Debugf("Decode to %v", val)
+	LOG.Debugf("%T decode to %v", val, val)
 	return val
+}
+
+// 数据结构转JSON字符串
+func (code *Bencode) ToJson(indent string) string {
+	if code.Data != nil {
+		t, err := json.MarshalIndent(code.Data, "", indent)
+		Check(err)
+		return string(t)
+	} else {
+		fmt.Println("No decoded data, should decode first.")
+	}
+	return ""
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////

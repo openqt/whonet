@@ -1,9 +1,15 @@
 package utils
 
 import (
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
+	"os"
 	"reflect"
 	"sort"
+)
+
+var (
+	log *logrus.Logger = nil
+	LOG                = GetLogger()
 )
 
 // 对字典的key排序
@@ -24,9 +30,9 @@ func DeepEqual(x, y interface{}) bool {
 
 	v1 := reflect.ValueOf(x)
 	v2 := reflect.ValueOf(y)
-	log.Debugf("Kind %v %v", v1.Kind(), v2.Kind())
-	log.Debugf("Type %v %v", v1.Type(), v2.Type())
-	log.Debugf("Interface %v %v", v1.Interface(), v2.Interface())
+	LOG.Debugf("Kind %v %v", v1.Kind(), v2.Kind())
+	LOG.Debugf("Type %v %v", v1.Type(), v2.Type())
+	LOG.Debugf("Interface %v %v", v1.Interface(), v2.Interface())
 
 	switch v1.Kind() {
 	case reflect.Slice, reflect.Array:
@@ -68,4 +74,25 @@ func DeepEqual(x, y interface{}) bool {
 		}
 		return x == y
 	}
+}
+
+func Check(e error) {
+	if e != nil {
+		panic(e)
+	}
+}
+
+func GetLogger() *logrus.Logger {
+	if log == nil {
+		log = logrus.New()
+		log.Level = logrus.InfoLevel
+		log.Out = os.Stdout
+
+		log.SetFormatter(&logrus.TextFormatter{
+			ForceColors: true,
+		})
+
+		log.Info("Logger initialized.")
+	}
+	return log
 }
