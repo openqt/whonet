@@ -76,7 +76,7 @@ func DeepEqual(x, y interface{}) bool {
 	}
 }
 
-func Check(e error) {
+func CheckError(e error) {
 	if e != nil {
 		panic(e)
 	}

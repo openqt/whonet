@@ -30,10 +30,12 @@ func init() {
 
 func ShowTorrent(file string) {
 	dat, err := ioutil.ReadFile(file)
-	utils.Check(err)
+	utils.CheckError(err)
 	LOG.Debugf("Length: %d", len(dat))
 
 	bc := utils.NewBencode()
 	bc.Decode(string(dat))
 	fmt.Println(bc.ToJson("  "))
+
+	fmt.Println(bc.ToTorrent())
 }

@@ -51,6 +51,7 @@ This allows for arbitrarily complex data structures to be encoded.
 type Bencode struct {
 	Data interface{} // 解码结构
 	Code string      // 编码文本
+	// TODO: 参考json.NewDecoder 改写编解码接口
 
 	idx int // (内部)解码字段长度
 }
@@ -130,12 +131,21 @@ func (code *Bencode) decode() interface{} {
 func (code *Bencode) ToJson(indent string) string {
 	if code.Data != nil {
 		t, err := json.MarshalIndent(code.Data, "", indent)
-		Check(err)
+		CheckError(err)
 		return string(t)
 	} else {
 		fmt.Println("No decoded data, should decode first.")
 	}
 	return ""
+}
+
+// 数据结构转Torrent结构
+func (code *Bencode) ToTorrent() *TorrentStruct {
+	torrent := new(TorrentStruct)
+	data, err := json.Marshal(code.Data)
+	CheckError(err)
+	json.Unmarshal(data, torrent)
+	return torrent
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////

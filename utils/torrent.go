@@ -6,18 +6,18 @@ type FileStruct struct {
 }
 
 type InfoStruct struct {
-	Files        []FileStruct
-	Length       int64
-	Name         string
-	Piece_length int64
-	Pieces       string
+	Files       []FileStruct
+	Length      int64
+	Name        string
+	PieceLength int64 `json:"piece length"`
+	//Pieces       string  // TODO: hash list structure
 }
 
 type TorrentStruct struct {
-	Announce      string
-	Announce_list []string
-	Comment       string
-	Created_by    int64
-	Creation_date int64
-	Info          InfoStruct
+	Announce     string
+	AnnounceList [][]string `json:"announce-list"`
+	Comment      string
+	CreatedBy    string `json:"created by"`
+	CreationDate int64  `json:"creation date"`
+	Info         InfoStruct
 }
