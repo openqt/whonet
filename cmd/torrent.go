@@ -1,10 +1,13 @@
 package cmd
 
 import (
+	"crypto/sha1"
+	"encoding/json"
 	"fmt"
 	"github.com/openqt/whonet/utils"
 	"github.com/spf13/cobra"
 	"io/ioutil"
+	"os"
 )
 
 var (
@@ -35,7 +38,28 @@ func ShowTorrent(file string) {
 
 	bc := utils.NewBencode()
 	bc.Decode(string(dat))
-	fmt.Println(bc.ToJson("  "))
+	torrent := utils.NewTorrent(bc.Data)
 
-	fmt.Println(bc.ToTorrent())
+	b, err := json.MarshalIndent(torrent, "", "  ")
+	fmt.Println(string(b))
+
+	f, err := os.Open("/data/Go/src/github.com/openqt/whonet/tests/ubuntu-18.10-desktop-amd64.iso")
+	utils.CheckError(err)
+	bytes := make([]byte, torrent.Info.PieceLength)
+	for i := 0; i < 3; i++ {
+		//n := i * 40
+		//fmt.Println(torrent.Info.Pieces.S) // [n : n+40])
+	}
+
+	h := sha1.New()
+
+	for i := 0; i < 10; i++ {
+		_, err := f.Read(bytes)
+		utils.CheckError(err)
+
+		h.Write(bytes)
+		hs := h.Sum(nil)
+		fmt.Printf("%02d: %x\n", i+1, hs)
+		h.Reset()
+	}
 }

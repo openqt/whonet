@@ -1,7 +1,6 @@
 package utils
 
 import (
-	"encoding/json"
 	"fmt"
 	"reflect"
 	"strconv"
@@ -101,7 +100,6 @@ func (code *Bencode) encode(val reflect.Value) string {
 
 // 从文本解码
 func (code *Bencode) Decode(s string) interface{} {
-	//LOG.Debugf("Decode %s", s)
 	code.Code = s
 	code.reset()
 	code.Data = code.decode()
@@ -114,39 +112,33 @@ func (code *Bencode) decode() interface{} {
 	switch {
 	case c == 'i':
 		val = code.decodeInt()
+		LOG.Debugf("%T decode to %v", val, val)
 	case c == 'l':
 		val = code.decodeList()
 	case c == 'd':
 		val = code.decodeDict()
 	case '0' <= c && c <= '9':
 		val = code.decodeString()
+		LOG.Debugf("%T length is %d", val, len(val.(string)))
 	default:
 		panic(fmt.Sprintf("%s is invalid.", code.Code))
 	}
-	LOG.Debugf("%T decode to %v", val, val)
+
 	return val
 }
 
 // 数据结构转JSON字符串
-func (code *Bencode) ToJson(indent string) string {
-	if code.Data != nil {
-		t, err := json.MarshalIndent(code.Data, "", indent)
-		CheckError(err)
-		return string(t)
-	} else {
-		fmt.Println("No decoded data, should decode first.")
-	}
-	return ""
-}
-
-// 数据结构转Torrent结构
-func (code *Bencode) ToTorrent() *TorrentStruct {
-	torrent := new(TorrentStruct)
-	data, err := json.Marshal(code.Data)
-	CheckError(err)
-	json.Unmarshal(data, torrent)
-	return torrent
-}
+//func (code *Bencode) ToJson(indent string) string {
+//	if code.Data != nil {
+//		t, err := json.MarshalIndent(code.Data, "", indent)
+//		CheckError(err)
+//
+//		return string(t)
+//	} else {
+//		fmt.Println("No decoded data, should decode first.")
+//	}
+//	return ""
+//}
 
 //////////////////////////////////////////////////////////////////////////////////////////
 //
@@ -306,7 +298,13 @@ func (code *Bencode) decodeDict() map[string]interface{} {
 	val := make(map[string]interface{})
 	for !code.isEnd() {
 		key := code.decodeString()
-		val[key] = code.decode()
+		_val := code.decode()
+		// All strings must be UTF-8 encoded, except for pieces, which contains binary data.
+		if key == "pieces" {
+			val[key] = fmt.Sprintf("%x", _val)
+		} else {
+			val[key] = _val
+		}
 	}
 	code.next() // 指向e下一个字符
 	return val
