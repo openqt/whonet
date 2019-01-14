@@ -1,6 +1,7 @@
 package utils
 
 //
+// 关于Go的json处理说明
 // 参考 https://blog.gopheracademy.com/advent-2016/advanced-encoding-decoding/
 //
 
@@ -38,6 +39,7 @@ type Pieces struct {
 	S string
 }
 
+// 显示pieces的数量及前三个SHA1
 func (j Pieces) MarshalJSON() ([]byte, error) {
 	const LEN = 40
 	s := fmt.Sprintf("[%d]", len(j.S)/LEN)

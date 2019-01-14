@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/openqt/whonet/utils"
+	"github.com/openqt/whonet/utils/bencode"
 	"github.com/spf13/cobra"
 	"io/ioutil"
 	"os"
@@ -32,27 +33,22 @@ func init() {
 }
 
 func ShowTorrent(file string) {
-	dat, err := ioutil.ReadFile(file)
+	bytes, err := ioutil.ReadFile(file)
 	utils.CheckError(err)
-	LOG.Debugf("Length: %d", len(dat))
+	LOG.Debugf("Length: %d", len(bytes))
 
-	bc := utils.NewBencode()
-	bc.Decode(string(dat))
-	torrent := utils.NewTorrent(bc.Data)
+	dec := bencode.NewDecoder()
+	val := dec.Decode(bytes)
+	torrent := utils.NewTorrent(val)
 
 	b, err := json.MarshalIndent(torrent, "", "  ")
 	fmt.Println(string(b))
 
 	f, err := os.Open("/data/Go/src/github.com/openqt/whonet/tests/ubuntu-18.10-desktop-amd64.iso")
 	utils.CheckError(err)
-	bytes := make([]byte, torrent.Info.PieceLength)
-	for i := 0; i < 3; i++ {
-		//n := i * 40
-		//fmt.Println(torrent.Info.Pieces.S) // [n : n+40])
-	}
+	bytes = make([]byte, torrent.Info.PieceLength)
 
 	h := sha1.New()
-
 	for i := 0; i < 10; i++ {
 		_, err := f.Read(bytes)
 		utils.CheckError(err)

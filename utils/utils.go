@@ -4,23 +4,12 @@ import (
 	"github.com/sirupsen/logrus"
 	"os"
 	"reflect"
-	"sort"
 )
 
 var (
 	log *logrus.Logger = nil
 	LOG                = GetLogger()
 )
-
-// 对字典的key排序
-func SortKeys(l []reflect.Value) []string {
-	var keys []string
-	for _, v := range l {
-		keys = append(keys, v.String())
-	}
-	sort.Strings(keys)
-	return keys
-}
 
 // 比较两个数组的值是否一致，忽略类型信息，数组值的顺序也必须一致
 func DeepEqual(x, y interface{}) bool {
