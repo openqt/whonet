@@ -49,6 +49,9 @@ This allows for arbitrarily complex data structures to be encoded.
 type Decoder struct {
 	buf []byte
 	idx int // (内部)解码字段长度
+
+	// 特殊处理二进制内容
+	Pieces string
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -214,7 +217,8 @@ func (dec *Decoder) decodeDict() map[string]interface{} {
 		_val := dec.decode()
 		// All strings must be UTF-8 encoded, except for pieces, which contains binary data.
 		if key == "pieces" {
-			val[key] = fmt.Sprintf("%x", _val)
+			dec.Pieces = _val.(string)
+			val[key] = fmt.Sprintf("%X", _val)
 		} else {
 			val[key] = _val
 		}

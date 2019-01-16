@@ -7,8 +7,10 @@ import (
 	"github.com/openqt/whonet/utils"
 	"github.com/openqt/whonet/utils/bencode"
 	"github.com/openqt/whonet/utils/torrent"
+	"github.com/satori/go.uuid"
 	"github.com/spf13/cobra"
 	"io/ioutil"
+	"net/url"
 	"os"
 )
 
@@ -38,9 +40,7 @@ func ShowTorrent(file string) {
 	utils.CheckError(err)
 	LOG.Debugf("Length: %d", len(bytes))
 
-	dec := bencode.NewDecoder()
-	val := dec.Decode(bytes)
-	torrent := torrent.NewTorrent(val)
+	torrent := torrent.NewTorrent(bytes)
 
 	b, err := json.MarshalIndent(torrent, "", "  ")
 	fmt.Println(string(b))
@@ -56,7 +56,24 @@ func ShowTorrent(file string) {
 
 		h.Write(bytes)
 		hs := h.Sum(nil)
-		fmt.Printf("%02d: %x\n", i+1, hs)
+		fmt.Printf("%02d: %X\n", i+1, hs)
 		h.Reset()
 	}
+
+	s := ""
+	enc := bencode.NewEncoder()
+
+	s = enc.Encode(torrent.Info.ToMap())
+	h.Write([]byte(s))
+	s = string(h.Sum(nil))
+	fmt.Printf("Info SHA1: %X, %s\n", s, url.QueryEscape(s))
+	h.Reset()
+
+	h.Write(uuid.NewV4().Bytes())
+	fmt.Printf("Peer ID: %s\n", url.QueryEscape(string(h.Sum(nil))))
+	h.Reset()
+
+	s = enc.Encode(torrent.ToMap())
+	err = ioutil.WriteFile("t.to", []byte(s), 0644)
+	utils.CheckError(err)
 }

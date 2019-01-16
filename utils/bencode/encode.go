@@ -2,6 +2,7 @@ package bencode
 
 import (
 	"fmt"
+	"github.com/openqt/whonet/utils/structs"
 	"reflect"
 	"sort"
 )
@@ -68,7 +69,7 @@ func (enc *Encoder) Encode(val interface{}) string {
 func (enc *Encoder) encode(val reflect.Value) string {
 	var result string
 	switch val.Kind() {
-	case reflect.Int:
+	case reflect.Int, reflect.Int64:
 		result = enc.encodeInt(int(val.Int()))
 	case reflect.String:
 		result = enc.encodeString(val.String())
@@ -76,8 +77,13 @@ func (enc *Encoder) encode(val reflect.Value) string {
 		result = enc.encodeList(val)
 	case reflect.Map:
 		result = enc.encodeDict(val)
+	case reflect.Struct:
+		result = enc.encodeStruct(val)
+	case reflect.Ptr:
+		result = enc.encode(reflect.ValueOf(val.Elem()))
 	default:
-		panic(fmt.Sprintf("Value %v (type %T) not recognized.", val, val))
+		v := fmt.Sprint(val)
+		panic(fmt.Sprintf("Kind %v (%.20s ...) not recognized.", val.Kind(), v))
 	}
 	return result
 }
@@ -126,7 +132,11 @@ func (enc *Encoder) encodeDict(d reflect.Value) string {
 	return val
 }
 
-///
+//
+func (enc *Encoder) encodeStruct(d reflect.Value) string {
+	m := structs.Map(d.Interface())
+	return enc.encodeDict(reflect.ValueOf(m))
+}
 
 // 对字典的key排序
 func SortKeys(l []reflect.Value) []string {
