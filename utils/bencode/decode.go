@@ -85,7 +85,7 @@ func (dec *Decoder) decode() interface{} {
 	case '0' <= c && c <= '9':
 		val = dec.decodeString()
 	default:
-		panic(fmt.Sprintf("%s is invalid.", dec.buf))
+		panic(fmt.Sprintf("%x in %d is invalid.", c, dec.Pos()))
 	}
 
 	return val

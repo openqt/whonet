@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/openqt/whonet/utils"
 	"github.com/openqt/whonet/utils/bencode"
+	"github.com/openqt/whonet/utils/torrent"
 	"github.com/spf13/cobra"
 	"io/ioutil"
 	"os"
@@ -39,7 +40,7 @@ func ShowTorrent(file string) {
 
 	dec := bencode.NewDecoder()
 	val := dec.Decode(bytes)
-	torrent := utils.NewTorrent(val)
+	torrent := torrent.NewTorrent(val)
 
 	b, err := json.MarshalIndent(torrent, "", "  ")
 	fmt.Println(string(b))
