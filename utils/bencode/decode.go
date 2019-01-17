@@ -216,7 +216,7 @@ func (dec *Decoder) decodeDict() map[string]interface{} {
 		key := dec.decodeString()
 		_val := dec.decode()
 		// All strings must be UTF-8 encoded, except for pieces, which contains binary data.
-		if key == "pieces" {
+		if key == "pieces" {  // TODO: 更好的Bencode解码机制
 			dec.Pieces = _val.(string)
 			val[key] = fmt.Sprintf("%X", _val)
 		} else {

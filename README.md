@@ -4,7 +4,8 @@ General peer to peer sharing downloader
 
 - [x] Decode torrent file, to json and internal data structure
 - [x] Marshal/Unmarshal hash list
-
+- [x] Generate info_hash
+- [ ] Get data from tracker
 
 
 
